@@ -1,7 +1,7 @@
 import { assert, expect } from "chai";
 import { parser } from "lezer-python";
 import * as p from "../parser";
-import { exprFromLiteral, intTypedVar, boolTypedVar } from "../ast";
+import { exprFromLiteral, intTypedVar, boolTypedVar, Expr } from "../ast";
 
 describe("traverseFuncDef function", () => {
   it("parses a basic function", () => {
@@ -110,6 +110,114 @@ f(False)`;
         {
           tag: "expr",
           expr: { tag: "call", name: "f", args: [exprFromLiteral(false)] },
+        },
+      ],
+    });
+  });
+});
+
+describe("traverseExpr function", () => {
+  const verify = (source: string, value: Expr) => {
+    const cursor = parser.parse(source).cursor();
+    cursor.firstChild();
+    cursor.firstChild();
+    const parsed = p.traverseExpr(source, cursor);
+    expect(parsed).to.deep.equal(value);
+  };
+
+  it("parses literals", () => {
+    const verifylit = (source: string, value: any) => {
+      verify(source, exprFromLiteral(value));
+    };
+    verifylit("1", 1);
+    verifylit("100", 100);
+    verifylit("False", false);
+    verifylit("True", true);
+    verifylit("None", null);
+  });
+
+  it("parses a paren expr", () => {
+    verify("(1+2)+3", {
+      tag: "binop",
+      op: "+",
+      left: {
+        tag: "binop",
+        op: "+",
+        left: exprFromLiteral(1),
+        right: exprFromLiteral(2),
+      },
+      right: exprFromLiteral(3),
+    });
+  });
+
+  it("parses expr with ops", () => {
+    verify("-1", { tag: "uniop", op: "-", value: exprFromLiteral(1) });
+    verify("not True", { tag: "uniop", op: "not", value: exprFromLiteral(true) });
+    verify("True is None", {
+      tag: "binop",
+      op: "is",
+      left: exprFromLiteral(true),
+      right: exprFromLiteral(null),
+    });
+    verify("3 <= 4", {
+      tag: "binop",
+      op: "<=",
+      left: exprFromLiteral(3),
+      right: exprFromLiteral(4),
+    });
+
+    verify("not (True is None)", {
+      tag: "uniop",
+      op: "not",
+      value: { tag: "binop", op: "is", left: exprFromLiteral(true), right: exprFromLiteral(null) },
+    });
+    verify("3 + 1 - 4 * 1 // 5", {
+      tag: "binop",
+      op: "-",
+      left: { tag: "binop", op: "+", left: exprFromLiteral(3), right: exprFromLiteral(1) },
+      right: {
+        tag: "binop",
+        op: "//",
+        left: { tag: "binop", op: "*", left: exprFromLiteral(4), right: exprFromLiteral(1) },
+        right: exprFromLiteral(5),
+      },
+    });
+    verify("1 <= 2 <= 3", {
+      tag: "binop",
+      op: "<=",
+      left: {
+        tag: "binop",
+        op: "<=",
+        left: exprFromLiteral(1),
+        right: exprFromLiteral(2),
+      },
+      right: exprFromLiteral(3),
+    });
+  });
+
+  it("parses expr with function calls", () => {
+    verify("f(1)", { tag: "call", name: "f", args: [exprFromLiteral(1)] });
+    verify("3 + f(None)", {
+      tag: "binop",
+      op: "+",
+      left: exprFromLiteral(3),
+      right: { tag: "call", name: "f", args: [exprFromLiteral(null)] },
+    });
+    verify("f(g(h(1), 2))", {
+      tag: "call",
+      name: "f",
+      args: [
+        {
+          tag: "call",
+          name: "g",
+          args: [
+            {
+              tag: "call",
+              name: "h",
+              args: [exprFromLiteral(1)],
+            },
+            exprFromLiteral(2),
+          ],
         },
       ],
     });

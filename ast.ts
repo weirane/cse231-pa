@@ -37,6 +37,8 @@ export type Expr =
   | { tag: "binop"; op: string; left: Expr; right: Expr }
   | { tag: "call"; name: string; args: Expr[] };
 
+export const BINOP = ["+", "-", "*", "//", "%", "==", "!=", "<=", ">=", "<", ">", "is"];
+
 export type Literal =
   | { tag: "number"; value: number }
   | { tag: "bool"; value: boolean }
@@ -50,8 +52,10 @@ export function boolTypedVar(s: string): TypedVar {
   return { name: s, typ: { tag: "bool" } };
 }
 
-export function exprFromLiteral(value: number | boolean): Expr {
-  if (typeof value === "number") {
+export function exprFromLiteral(value: number | boolean | null): Expr {
+  if (value === null) {
+    return { tag: "literal", value: { tag: "none" } };
+  } else if (typeof value === "number") {
     return { tag: "literal", value: { tag: "number", value } };
   } else {
     return { tag: "literal", value: { tag: "bool", value } };

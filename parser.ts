@@ -1,6 +1,6 @@
 import { TreeCursor } from "lezer";
 import { parser } from "lezer-python";
-import { TypedVar, Stmt, Expr, Type, Decl, VarDef, Program, FuncDef } from "./ast";
+import { TypedVar, Stmt, Expr, Type, Decl, VarDef, Program, FuncDef, BINOP } from "./ast";
 import { exprFromLiteral } from "./ast";
 import { fmap_null } from "./util";
 
@@ -209,6 +209,8 @@ export function traverseParameters(s: string, t: TreeCursor): Array<TypedVar> {
 
 export function traverseExpr(s: string, t: TreeCursor): Expr {
   switch (t.type.name) {
+    case "None":
+      return exprFromLiteral(null);
     case "Number":
       return exprFromLiteral(Number(s.substring(t.from, t.to)));
     case "Boolean": {
@@ -217,6 +219,39 @@ export function traverseExpr(s: string, t: TreeCursor): Expr {
     }
     case "VariableName":
       return { tag: "id", name: s.substring(t.from, t.to) };
+    case "ParenthesizedExpression": {
+      t.firstChild();
+      t.nextSibling();
+      const expr = traverseExpr(s, t);
+      t.parent();
+      return expr;
+    }
+    case "UnaryExpression": {
+      t.firstChild();
+      const op = s.substring(t.from, t.to);
+      if (op != "-" && op != "not") {
+        t.parent();
+        throw new ParseError(`Unsupported UnaryExpression op (${op})`);
+      }
+      t.nextSibling();
+      const arg = traverseExpr(s, t);
+      t.parent();
+      return { tag: "uniop", op, value: arg };
+    }
+    case "BinaryExpression": {
+      t.firstChild();
+      const left = traverseExpr(s, t);
+      t.nextSibling(); // find the next argument in arglist
+      const op = s.substring(t.from, t.to);
+      t.nextSibling(); // find the next argument in arglist
+      const right = traverseExpr(s, t);
+      t.parent();
+      if (BINOP.includes(op)) {
+        return { tag: "binop", op, left, right };
+      } else {
+        throw new ParseError(`Invalid op ${op}`);
+      }
+    }
     case "CallExpression": {
       t.firstChild(); // Focus name
       const name = s.substring(t.from, t.to);
