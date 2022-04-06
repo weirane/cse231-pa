@@ -176,7 +176,7 @@ export function traverseType(s: string, t: TreeCursor): Type {
     case "VariableName":
       const name = s.substring(t.from, t.to);
       if (name !== "int" && name !== "bool") {
-        throw new Error("Unknown type: " + name);
+        throw new ParseError("Unknown type: " + name);
       }
       return { tag: name };
     default:
@@ -193,7 +193,7 @@ export function traverseParameters(s: string, t: TreeCursor): Array<TypedVar> {
     t.nextSibling(); // Focuses on "TypeDef", hopefully, or "," if mistake
     let nextTagName = t.type.name; // NOTE(joe): a bit of a hack so the next line doesn't if-split
     if (nextTagName !== "TypeDef") {
-      throw new Error("Missed type annotation for parameter " + name);
+      throw new ParseError("Missed type annotation for parameter " + name);
     }
     t.firstChild(); // Enter TypeDef
     t.nextSibling(); // Focuses on type itself
