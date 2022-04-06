@@ -1,16 +1,135 @@
 import { TreeCursor } from "lezer";
 import { parser } from "lezer-python";
-import { Parameter, Stmt, Expr, Type } from "./ast";
+import { TypedVar, Stmt, Expr, Type, Decl, VarDef, Program, FuncDef } from "./ast";
+import { exprFromLiteral } from "./ast";
+import { fmap_null } from "./util";
 
-export function parseProgram(source: string): Array<Stmt> {
+export class ParseError extends Error {
+  constructor(message: string) {
+    // ensure that the message includes ParseError
+    super("ParseError: " + message);
+    this.name = "ParseError";
+  }
+}
+
+export function parseProgram(source: string): Program {
   const t = parser.parse(source).cursor();
-  return traverseStmts(source, t);
+  t.firstChild();
+  const decls = traverseDecls(source, t);
+  const stmts = traverseStmts(source, t);
+  return { decls, stmts };
+}
+
+export function traverseDecls(s: string, t: TreeCursor): Decl[] {
+  const decls = [];
+  do {
+    const d = traverseDecl(s, t);
+    if (d === null) {
+      break;
+    }
+    decls.push(d);
+  } while (t.nextSibling());
+  return decls;
+}
+
+export function traverseDecl(s: string, t: TreeCursor): Decl | null {
+  if (t.type.name === "FunctionDefinition") {
+    return {
+      tag: "func_def",
+      decl: traverseFuncDef(s, t),
+    };
+  } else if (t.type.name === "AssignStatement") {
+    return fmap_null(traverseVarDef(s, t), (decl) => ({
+      tag: "var_def",
+      decl,
+    }));
+  } else {
+    return null;
+  }
+}
+
+export function traverseFuncDef(s: string, t: TreeCursor): FuncDef {
+  if (t.type.name !== "FunctionDefinition") {
+    throw new Error("expected FunctionDefinition");
+  }
+  t.firstChild();
+  if (t.node.name === "async") {
+    throw new ParseError("async functions not supported");
+  }
+  // parse function name
+  t.nextSibling();
+  const name = s.substring(t.from, t.to);
+
+  // parse function parameters
+  t.nextSibling();
+  const params = traverseParameters(s, t);
+
+  // parse return type
+  t.nextSibling();
+  let ret: Type;
+  if (t.name === "TypeDef") {
+    t.firstChild();
+    t.nextSibling(); // skip the "->"
+    ret = traverseType(s, t);
+    t.parent();
+  } else {
+    ret = { tag: "none" };
+  }
+
+  // parse var def and function body
+  t.nextSibling();
+  t.firstChild();
+  t.nextSibling(); // skip the ":"
+  const var_def: VarDef[] = [];
+  do {
+    const d = traverseVarDef(s, t);
+    if (d === null) {
+      break;
+    }
+    var_def.push(d);
+  } while (t.nextSibling());
+  const body = traverseStmts(s, t);
+  t.parent();
+
+  t.parent();
+  return { name, params, ret, var_def, body };
+}
+
+export function traverseVarDef(s: string, t: TreeCursor): VarDef | null {
+  if (t.type.name !== "AssignStatement") {
+    return null;
+  }
+  t.firstChild();
+  const var_ = traverseTypedVar(s, t);
+  if (var_ === null) {
+    return null;
+  }
+  t.nextSibling(); // skip the "="
+  t.nextSibling();
+  const value = traverseExpr(s, t);
+  t.parent();
+  return { var_, value };
+}
+
+// VariableName "a" <- t
+// TypeDef ": int"
+//   : ":"
+//   VariableName "int"
+export function traverseTypedVar(s: string, t: TreeCursor): TypedVar | null {
+  const name = s.substring(t.from, t.to);
+  t.nextSibling(); // focus on type def
+  if (t.type.name !== "TypeDef") {
+    // missing type def
+    return null;
+  }
+  t.firstChild();
+  t.nextSibling(); // focus on type name
+  const typ = traverseType(s, t);
+  t.parent();
+  return { name, typ };
 }
 
 export function traverseStmts(s: string, t: TreeCursor) {
-  // The top node in the program is a Script node with a list of children
-  // that are various statements
-  t.firstChild();
   const stmts = [];
   do {
     stmts.push(traverseStmt(s, t));
@@ -45,35 +164,10 @@ export function traverseStmt(s: string, t: TreeCursor): Stmt {
       var expr = traverseExpr(s, t);
       t.parent();
       return { tag: "expr", expr: expr };
-    case "FunctionDefinition":
-      t.firstChild(); // Focus on def
-      t.nextSibling(); // Focus on name of function
-      var name = s.substring(t.from, t.to);
-      t.nextSibling(); // Focus on ParamList
-      var parameters = traverseParameters(s, t);
-      t.nextSibling(); // Focus on Body or TypeDef
-      let ret: Type = "none";
-      let maybeTD = t;
-      if (maybeTD.type.name === "TypeDef") {
-        t.firstChild();
-        ret = traverseType(s, t);
-        t.parent();
-      }
-      t.nextSibling(); // Focus on single statement (for now)
-      t.firstChild(); // Focus on :
-      const body = [];
-      while (t.nextSibling()) {
-        body.push(traverseStmt(s, t));
-      }
-      t.parent(); // Pop to Body
-      t.parent(); // Pop to FunctionDefinition
-      return {
-        tag: "define",
-        name,
-        parameters,
-        body,
-        ret,
-      };
+    case "PassStatement":
+      return { tag: "pass" };
+    default:
+      throw new Error("Invalid node type for stmt: " + t.type.name);
   }
 }
 
@@ -81,16 +175,16 @@ export function traverseType(s: string, t: TreeCursor): Type {
   switch (t.type.name) {
     case "VariableName":
       const name = s.substring(t.from, t.to);
-      if (name !== "int") {
+      if (name !== "int" && name !== "bool") {
         throw new Error("Unknown type: " + name);
       }
-      return name;
+      return { tag: name };
     default:
-      throw new Error("Unknown type: " + t.type.name);
+      throw new Error("Invalid node type for traverseType: " + t.type.name);
   }
 }
 
-export function traverseParameters(s: string, t: TreeCursor): Array<Parameter> {
+export function traverseParameters(s: string, t: TreeCursor): Array<TypedVar> {
   t.firstChild(); // Focuses on open paren
   const parameters = [];
   t.nextSibling(); // Focuses on a VariableName
@@ -116,18 +210,23 @@ export function traverseParameters(s: string, t: TreeCursor): Array<Parameter> {
 export function traverseExpr(s: string, t: TreeCursor): Expr {
   switch (t.type.name) {
     case "Number":
-      return { tag: "number", value: Number(s.substring(t.from, t.to)) };
+      return exprFromLiteral(Number(s.substring(t.from, t.to)));
+    case "Boolean": {
+      const v = s.substring(t.from, t.to) === "True" ? true : false;
+      return exprFromLiteral(v);
+    }
     case "VariableName":
       return { tag: "id", name: s.substring(t.from, t.to) };
-    case "CallExpression":
+    case "CallExpression": {
       t.firstChild(); // Focus name
-      var name = s.substring(t.from, t.to);
+      const name = s.substring(t.from, t.to);
       t.nextSibling(); // Focus ArgList
-      t.firstChild(); // Focus open paren
-      var args = traverseArguments(t, s);
-      var result: Expr = { tag: "call", name, arguments: args };
+      const args = traverseArguments(t, s);
       t.parent();
-      return result;
+      return { tag: "call", name, args };
+    }
+    default:
+      throw new Error("Invalid node type for expr: " + t.type.name);
   }
 }
 
