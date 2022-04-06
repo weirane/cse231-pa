@@ -1,4 +1,4 @@
-import { assert, expect } from "chai";
+import { expect } from "chai";
 import { parser } from "lezer-python";
 import * as p from "../parser";
 import { exprFromLiteral, intTypedVar, boolTypedVar, Expr } from "../ast";
@@ -196,6 +196,7 @@ describe("traverseExpr function", () => {
   });
 
   it("parses expr with function calls", () => {
+    verify("g()", { tag: "call", name: "g", args: [] });
     verify("f(1)", { tag: "call", name: "f", args: [exprFromLiteral(1)] });
     verify("3 + f(None)", {
       tag: "binop",
