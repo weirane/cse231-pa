@@ -1,9 +1,9 @@
-import wabt from 'wabt';
-import {Stmt, Expr} from './ast';
-import {parseProgram, traverseExpr} from './parser';
-import { tcProgram } from './tc';
+import wabt from "wabt";
+import { Stmt, Expr } from "./ast";
+import { parseProgram, traverseExpr } from "./parser";
+import { tcProgram } from "./tc";
 
-export async function run(watSource : string) : Promise<number> {
+export async function run(watSource: string): Promise<number> {
   const wabtApi = await wabt();
 
   // Next three lines are wat2wasm
@@ -17,26 +17,30 @@ export async function run(watSource : string) : Promise<number> {
 
 (window as any)["runWat"] = run;
 
-export function codeGenExpr(expr : Expr) : Array<string> {
-  switch(expr.tag) {
-    case "id": return [`(local.get $${expr.name})`];
-    case "number": return [`(i32.const ${expr.value})`];
+export function codeGenExpr(expr: Expr): Array<string> {
+  switch (expr.tag) {
+    case "id":
+      return [`(local.get $${expr.name})`];
+    case "number":
+      return [`(i32.const ${expr.value})`];
     case "call":
       const valStmts = expr.arguments.map(codeGenExpr).flat();
       valStmts.push(`(call $${expr.name})`);
       return valStmts;
   }
 }
-export function codeGenStmt(stmt : Stmt) : Array<string> {
-  switch(stmt.tag) {
+export function codeGenStmt(stmt: Stmt): Array<string> {
+  switch (stmt.tag) {
     case "define":
-      const params = stmt.parameters.map(p => `(param $${p.name} i32)`).join(" ");
+      const params = stmt.parameters.map((p) => `(param $${p.name} i32)`).join(" ");
       const stmts = stmt.body.map(codeGenStmt).flat();
       const stmtsBody = stmts.join("\n");
-      return [`(func $${stmt.name} ${params} (result i32)
+      return [
+        `(func $${stmt.name} ${params} (result i32)
         (local $scratch i32)
         ${stmtsBody}
-        (i32.const 0))`];
+        (i32.const 0))`,
+      ];
     case "return":
       var valStmts = codeGenExpr(stmt.value);
       valStmts.push("return");
@@ -51,23 +55,29 @@ export function codeGenStmt(stmt : Stmt) : Array<string> {
       return result;
   }
 }
-export function compile(source : string) : string {
+export function compile(source: string): string {
   const ast = parseProgram(source);
   tcProgram(ast);
-  const vars : Array<string> = [];
+  const vars: Array<string> = [];
   ast.forEach((stmt) => {
-    if(stmt.tag === "assign") { vars.push(stmt.name); }
+    if (stmt.tag === "assign") {
+      vars.push(stmt.name);
+    }
   });
-  const funs : Array<string> = [];
+  const funs: Array<string> = [];
   ast.forEach((stmt, i) => {
-    if(stmt.tag === "define") { funs.push(codeGenStmt(stmt).join("\n")); }
+    if (stmt.tag === "define") {
+      funs.push(codeGenStmt(stmt).join("\n"));
+    }
   });
   const allFuns = funs.join("\n\n");
   const stmts = ast.filter((stmt) => stmt.tag !== "define");
-  
-  const varDecls : Array<string> = [];
+
+  const varDecls: Array<string> = [];
   varDecls.push(`(local $scratch i32)`);
-  vars.forEach(v => { varDecls.push(`(local $${v} i32)`); });
+  vars.forEach((v) => {
+    varDecls.push(`(local $${v} i32)`);
+  });
 
   const allStmts = stmts.map(codeGenStmt).flat();
   const ourCode = varDecls.concat(allStmts).join("\n");
@@ -76,9 +86,9 @@ export function compile(source : string) : string {
   const isExpr = lastStmt.tag === "expr";
   var retType = "";
   var retVal = "";
-  if(isExpr) {
+  if (isExpr) {
     retType = "(result i32)";
-    retVal = "(local.get $scratch)"
+    retVal = "(local.get $scratch)";
   }
 
   return `

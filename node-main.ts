@@ -1,4 +1,4 @@
-import {compile, run} from './compiler';
+import { compile, run } from "./compiler";
 
 // command to run:
 // node node-main.js 987
@@ -8,4 +8,3 @@ console.log(result);
 run(result).then((value) => {
   console.log(value);
 });
-
