@@ -280,4 +280,17 @@ describe("traverseStmt function", () => {
       else_: [{ tag: "pass" }],
     });
   });
+
+  it("parses while statements", () => {
+    verify("while True: pass", {
+      tag: "while",
+      cond: exprFromLiteral(true),
+      body: [{ tag: "pass" }],
+    });
+    verify("while a + b: a = 3", {
+      tag: "while",
+      cond: { tag: "binop", op: "+", left: namedVar("a"), right: namedVar("b") },
+      body: [{ tag: "assign", name: "a", value: exprFromLiteral(3) }],
+    });
+  });
 });

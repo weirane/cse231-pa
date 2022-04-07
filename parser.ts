@@ -168,6 +168,8 @@ export function traverseStmt(s: string, t: TreeCursor): Stmt {
       return { tag: "pass" };
     case "IfStatement":
       return traverseIfStmt(s, t);
+    case "WhileStatement":
+      return traverseWhileStmt(s, t);
     default:
       throw new Error("Invalid node type for stmt: " + t.type.name);
   }
@@ -208,6 +210,16 @@ export function traverseIfStmt(s: string, t: TreeCursor): Stmt {
 
   t.parent();
   return { tag: "if", branches, else_ };
+}
+
+export function traverseWhileStmt(s: string, t: TreeCursor): Stmt {
+  t.firstChild();
+  t.nextSibling(); // skip the "while"
+  const cond = traverseExpr(s, t);
+  t.nextSibling();
+  const body = traverseBody(s, t);
+  t.parent();
+  return { tag: "while", cond, body };
 }
 
 export function traverseType(s: string, t: TreeCursor): Type {
