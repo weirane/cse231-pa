@@ -14,22 +14,20 @@ export class ParseError extends Error {
 
 export function parseProgram(source: string): Program {
   const t = parser.parse(source).cursor();
-  t.firstChild();
-  const decls = traverseDecls(source, t);
-  const stmts = traverseStmts(source, t);
-  return { decls, stmts };
-}
-
-export function traverseDecls(s: string, t: TreeCursor): Decl[] {
+  if (!t.firstChild()) {
+    return { decls: [], stmts: [] };
+  }
   const decls = [];
   do {
-    const d = traverseDecl(s, t);
+    const d = traverseDecl(source, t);
     if (d === null) {
-      break;
+      // declarations done
+      const stmts = traverseStmts(source, t);
+      return { decls, stmts };
     }
     decls.push(d);
   } while (t.nextSibling());
-  return decls;
+  return { decls, stmts: [] };
 }
 
 export function traverseDecl(s: string, t: TreeCursor): Decl | null {

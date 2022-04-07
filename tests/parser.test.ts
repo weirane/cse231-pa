@@ -114,6 +114,56 @@ f(False)`;
       ],
     });
   });
+
+  it("parses an empty program", () => {
+    const source = "";
+    const parsed = p.parseProgram(source);
+    expect(parsed).to.deep.equal({
+      decls: [],
+      stmts: [],
+    });
+  });
+
+  it("parses a program without declarations", () => {
+    const source = `
+print(3)
+print(4)`;
+    const parsed = p.parseProgram(source);
+    expect(parsed).to.deep.equal({
+      decls: [],
+      stmts: [
+        { tag: "expr", expr: { tag: "call", name: "print", args: [exprFromLiteral(3)] } },
+        { tag: "expr", expr: { tag: "call", name: "print", args: [exprFromLiteral(4)] } },
+      ],
+    });
+  });
+
+  it("parses a program without statements", () => {
+    const source = `
+glob: int = 0
+def f():
+  pass`;
+    const parsed = p.parseProgram(source);
+    expect(parsed).to.deep.equal({
+      decls: [
+        {
+          tag: "var_def",
+          decl: { var_: intTypedVar("glob"), value: exprFromLiteral(0) },
+        },
+        {
+          tag: "func_def",
+          decl: {
+            name: "f",
+            params: [],
+            ret: { tag: "none" },
+            var_def: [],
+            body: [{ tag: "pass" }],
+          },
+        },
+      ],
+      stmts: [],
+    });
+  });
 });
 
 describe("traverseExpr function", () => {
