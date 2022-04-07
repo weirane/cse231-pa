@@ -22,7 +22,7 @@ export type FuncDef = {
 
 export type Stmt =
   | { tag: "assign"; name: string; value: Expr }
-  | { tag: "if"; branches: IfBranch[]; else: Stmt[] }
+  | { tag: "if"; branches: IfBranch[]; else_: Stmt[] }
   | { tag: "while"; cond: Expr; body: Stmt[] }
   | { tag: "pass" }
   | { tag: "expr"; expr: Expr }
@@ -43,6 +43,10 @@ export type Literal =
   | { tag: "number"; value: number }
   | { tag: "bool"; value: boolean }
   | { tag: "none" };
+
+export function namedVar(name: string): Expr {
+  return { tag: "id", name };
+}
 
 export function intTypedVar(s: string): TypedVar {
   return { name: s, typ: { tag: "int" } };

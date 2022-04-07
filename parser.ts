@@ -1,7 +1,7 @@
 import { TreeCursor } from "lezer";
 import { parser } from "lezer-python";
-import { TypedVar, Stmt, Expr, Type, Decl, VarDef, Program, FuncDef, BINOP } from "./ast";
-import { exprFromLiteral } from "./ast";
+import { TypedVar, Stmt, Expr, Type, Decl, VarDef, Program, FuncDef, IfBranch } from "./ast";
+import { exprFromLiteral, BINOP } from "./ast";
 import { fmap_null } from "./util";
 
 export class ParseError extends Error {
@@ -154,7 +154,6 @@ export function traverseStmt(s: string, t: TreeCursor): Stmt {
       var name = s.substring(t.from, t.to);
       t.nextSibling(); // focused on = sign. May need this for complex tasks, like +=!
       t.nextSibling(); // focused on the value expression
-
       var value = traverseExpr(s, t);
       t.parent();
       return { tag: "assign", name, value };
@@ -166,9 +165,48 @@ export function traverseStmt(s: string, t: TreeCursor): Stmt {
       return { tag: "expr", expr: expr };
     case "PassStatement":
       return { tag: "pass" };
+    case "IfStatement":
+      return traverseIfStmt(s, t);
     default:
       throw new Error("Invalid node type for stmt: " + t.type.name);
   }
+}
+
+/// traverse body with a colon
+/// Body
+///   :
+///   Statement
+export function traverseBody(s: string, t: TreeCursor): Stmt[] {
+  if (t.type.name !== "Body") {
+    throw new Error("expected Body");
+  }
+  t.firstChild();
+  t.nextSibling(); // skip the colon
+  const stmts = traverseStmts(s, t);
+  t.parent();
+  return stmts;
+}
+
+export function traverseIfStmt(s: string, t: TreeCursor): Stmt {
+  t.firstChild();
+  const branches: IfBranch[] = [];
+  while (branches.length === 0 || t.type.name === "elif") {
+    t.nextSibling(); // skip the "if" or "elif"
+    const cond = traverseExpr(s, t);
+    t.nextSibling();
+    const body = traverseBody(s, t);
+    t.nextSibling();
+    branches.push({ cond, body });
+  }
+
+  let else_: Stmt[] = [];
+  if (t.type.name === "else") {
+    t.nextSibling();
+    else_ = traverseBody(s, t);
+  }
+
+  t.parent();
+  return { tag: "if", branches, else_ };
 }
 
 export function traverseType(s: string, t: TreeCursor): Type {

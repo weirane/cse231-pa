@@ -1,7 +1,7 @@
 import { expect } from "chai";
 import { parser } from "lezer-python";
 import * as p from "../parser";
-import { exprFromLiteral, intTypedVar, boolTypedVar, Expr } from "../ast";
+import { exprFromLiteral, intTypedVar, boolTypedVar, Expr, Stmt, namedVar } from "../ast";
 
 describe("traverseFuncDef function", () => {
   it("parses a basic function", () => {
@@ -221,6 +221,59 @@ describe("traverseExpr function", () => {
           ],
         },
       ],
+    });
+  });
+});
+
+describe("traverseStmt function", () => {
+  const verify = (source: string, value: Stmt) => {
+    const cursor = parser.parse(source).cursor();
+    cursor.firstChild();
+    const parsed = p.traverseStmt(source, cursor);
+    expect(parsed).to.deep.equal(value);
+  };
+
+  it("parses basic statements", () => {
+    verify("pass", { tag: "pass" });
+    verify("a = 1", { tag: "assign", name: "a", value: exprFromLiteral(1) });
+    verify("return a + b", {
+      tag: "return",
+      value: { tag: "binop", op: "+", left: namedVar("a"), right: namedVar("b") },
+    });
+    verify("print(1)", {
+      tag: "expr",
+      expr: { tag: "call", name: "print", args: [exprFromLiteral(1)] },
+    });
+  });
+
+  it("parses if statements", () => {
+    verify("if True: pass", {
+      tag: "if",
+      branches: [{ cond: exprFromLiteral(true), body: [{ tag: "pass" }] }],
+      else_: [],
+    });
+    verify("if True: pass\nelse: pass", {
+      tag: "if",
+      branches: [{ cond: exprFromLiteral(true), body: [{ tag: "pass" }] }],
+      else_: [{ tag: "pass" }],
+    });
+    verify("if True: pass\nelif a: pass\nelif b: pass", {
+      tag: "if",
+      branches: [
+        { cond: exprFromLiteral(true), body: [{ tag: "pass" }] },
+        { cond: namedVar("a"), body: [{ tag: "pass" }] },
+        { cond: namedVar("b"), body: [{ tag: "pass" }] },
+      ],
+      else_: [],
+    });
+    verify("if True: pass\nelif a: pass\nelif b: pass\nelse: pass", {
+      tag: "if",
+      branches: [
+        { cond: exprFromLiteral(true), body: [{ tag: "pass" }] },
+        { cond: namedVar("a"), body: [{ tag: "pass" }] },
+        { cond: namedVar("b"), body: [{ tag: "pass" }] },
+      ],
+      else_: [{ tag: "pass" }],
     });
   });
 });
