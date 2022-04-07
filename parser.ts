@@ -143,12 +143,13 @@ export function traverseStmts(s: string, t: TreeCursor) {
 */
 export function traverseStmt(s: string, t: TreeCursor): Stmt {
   switch (t.type.name) {
-    case "ReturnStatement":
+    case "ReturnStatement": {
       t.firstChild(); // Focus return keyword
       t.nextSibling(); // Focus expression
-      var value = traverseExpr(s, t);
+      const value = t.name === "⚠" ? exprFromLiteral(null) : traverseExpr(s, t);
       t.parent();
       return { tag: "return", value };
+    }
     case "AssignStatement":
       t.firstChild(); // focused on name (the first child)
       var name = s.substring(t.from, t.to);

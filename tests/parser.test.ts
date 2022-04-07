@@ -236,6 +236,10 @@ describe("traverseStmt function", () => {
   it("parses basic statements", () => {
     verify("pass", { tag: "pass" });
     verify("a = 1", { tag: "assign", name: "a", value: exprFromLiteral(1) });
+    verify("return", {
+      tag: "return",
+      value: exprFromLiteral(null),
+    });
     verify("return a + b", {
       tag: "return",
       value: { tag: "binop", op: "+", left: namedVar("a"), right: namedVar("b") },
