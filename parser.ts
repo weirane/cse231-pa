@@ -207,6 +207,9 @@ export function traverseIfStmt(s: string, t: TreeCursor): Stmt {
   }
 
   t.parent();
+  if (branches.length > 2) {
+    throw new ParseError("more than one elif not supported");
+  }
   return { tag: "if", branches, else_ };
 }
 

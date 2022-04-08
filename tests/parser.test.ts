@@ -311,21 +311,19 @@ describe("traverseStmt function", () => {
       branches: [{ cond: exprFromLiteral(true), body: [{ tag: "pass" }] }],
       else_: [{ tag: "pass" }],
     });
-    verify("if True: pass\nelif a: pass\nelif b: pass", {
+    verify("if True: pass\nelif a: pass", {
       tag: "if",
       branches: [
         { cond: exprFromLiteral(true), body: [{ tag: "pass" }] },
         { cond: namedVar("a"), body: [{ tag: "pass" }] },
-        { cond: namedVar("b"), body: [{ tag: "pass" }] },
       ],
       else_: [],
     });
-    verify("if True: pass\nelif a: pass\nelif b: pass\nelse: pass", {
+    verify("if True: pass\nelif a: pass\nelse: pass", {
       tag: "if",
       branches: [
         { cond: exprFromLiteral(true), body: [{ tag: "pass" }] },
         { cond: namedVar("a"), body: [{ tag: "pass" }] },
-        { cond: namedVar("b"), body: [{ tag: "pass" }] },
       ],
       else_: [{ tag: "pass" }],
     });
@@ -342,5 +340,20 @@ describe("traverseStmt function", () => {
       cond: { tag: "binop", op: "+", left: namedVar("a"), right: namedVar("b") },
       body: [{ tag: "assign", name: "a", value: exprFromLiteral(3) }],
     });
+  });
+
+  it("cannot parse more than one elif", () => {
+    const source = `
+if a:
+    pass
+elif b:
+    pass
+elif c:
+    pass
+else:
+    pass`;
+    const cursor = parser.parse(source).cursor();
+    cursor.firstChild();
+    expect(() => p.traverseStmt(source, cursor)).to.throw("more than one elif not supported");
   });
 });
