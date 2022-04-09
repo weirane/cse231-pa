@@ -100,6 +100,7 @@ export function traverseVarDef(s: string, t: TreeCursor): VarDef | null {
   t.firstChild();
   const var_ = traverseTypedVar(s, t);
   if (var_ === null) {
+    t.parent();
     return null;
   }
   t.nextSibling(); // skip the "="

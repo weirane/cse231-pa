@@ -115,6 +115,15 @@ f(False)`;
     });
   });
 
+  it("parses a program whose first stmt is assign", () => {
+    const source = "f: bool = False\nf = 0";
+    const parsed = p.parseProgram(source);
+    expect(parsed).to.deep.equal({
+      decls: [{ tag: "var_def", decl: { var_: boolTypedVar("f"), value: exprFromLiteral(false) } }],
+      stmts: [{ tag: "assign", name: "f", value: exprFromLiteral(0) }],
+    });
+  });
+
   it("parses an empty program", () => {
     const source = "";
     const parsed = p.parseProgram(source);
