@@ -39,10 +39,70 @@ export type Expr =
 
 export const BINOP = ["+", "-", "*", "//", "%", "==", "!=", "<=", ">=", "<", ">", "is"];
 
+export const BINOP_ARGS: { [key: string]: Type[] } = {
+  "+": [{ tag: "int" }, { tag: "int" }],
+  "-": [{ tag: "int" }, { tag: "int" }],
+  "*": [{ tag: "int" }, { tag: "int" }],
+  "//": [{ tag: "int" }, { tag: "int" }],
+  "%": [{ tag: "int" }, { tag: "int" }],
+  "==": [{ tag: "int" }, { tag: "int" }],
+  "!=": [{ tag: "int" }, { tag: "int" }],
+  "<=": [{ tag: "int" }, { tag: "int" }],
+  ">=": [{ tag: "int" }, { tag: "int" }],
+  "<": [{ tag: "int" }, { tag: "int" }],
+  ">": [{ tag: "int" }, { tag: "int" }],
+  // from the spec: T1, T2 are not one of int, str, bool
+  is: [{ tag: "none" }, { tag: "none" }],
+};
+
+export const BINOP_RETS: { [key: string]: Type } = {
+  "+": { tag: "int" },
+  "-": { tag: "int" },
+  "*": { tag: "int" },
+  "//": { tag: "int" },
+  "%": { tag: "int" },
+  "==": { tag: "bool" },
+  "!=": { tag: "bool" },
+  "<=": { tag: "bool" },
+  ">=": { tag: "bool" },
+  "<": { tag: "bool" },
+  ">": { tag: "bool" },
+  is: { tag: "bool" },
+};
+
+export const BINOP_VERB: { [key: string]: string } = {
+  "+": "add",
+  "-": "sub",
+  "*": "mul",
+  "//": "floordiv",
+  "%": "mod",
+  "==": "compare",
+  "!=": "compare",
+  "<=": "compare",
+  ">=": "compare",
+  "<": "compare",
+  ">": "compare",
+  is: "is",
+};
+
 export type Literal =
   | { tag: "number"; value: number }
   | { tag: "bool"; value: boolean }
   | { tag: "none" };
+
+export function sameType(t1: Type, t2: Type): boolean {
+  if (t1.tag !== t2.tag) {
+    return false;
+  }
+  if (t1.tag === "func" && t2.tag === "func") {
+    return (
+      t1.args.length === t2.args.length &&
+      sameType(t1.ret, t2.ret) &&
+      t1.args.every((_, i) => sameType(t1.args[i], t2.args[i]))
+    );
+  }
+  return true;
+}
 
 export function namedVar(name: string): Expr {
   return { tag: "id", name };
