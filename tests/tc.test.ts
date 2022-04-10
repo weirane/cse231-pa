@@ -1,6 +1,7 @@
 import { assert, expect } from "chai";
 import * as t from "../tc";
 import { parseProgram } from "../parser";
+import { Type } from "../ast";
 
 describe("typecheck expressions", () => {
   const verifyThrows = (scope: string, code: string, message: any) => {
@@ -10,6 +11,14 @@ describe("typecheck expressions", () => {
     }
     const sc = t.scopeFromDecls(parseProgram(scope).decls);
     expect(() => t.tcExpr(s.expr, sc)).to.throw(message);
+  };
+  const verifySucc = (scope: string, code: string, ty: Type) => {
+    const s = parseProgram(code).stmts[0];
+    if (s.tag !== "expr") {
+      assert.fail("first stmt should be expr");
+    }
+    const sc = t.scopeFromDecls(parseProgram(scope).decls);
+    expect(t.tcExpr(s.expr, sc)).to.deep.equal(ty);
   };
 
   it("checks uniops", () => {
@@ -25,6 +34,27 @@ describe("typecheck expressions", () => {
     verifyThrows(scope, "i1 // b2", "Cannot `floordiv`");
     verifyThrows(scope, "b1 > i1", "Cannot compare bool with int");
     verifyThrows(scope, "i1 is i1", "Cannot `is` int with int");
+  });
+
+  it("checks function calls", () => {
+    const scope = `
+i1: int = 0
+i2: int = 2
+b1: bool = False
+def f(i: int, b: bool) -> int:
+  if b:
+    return i
+  else:
+    return 0`;
+    verifyThrows(scope, "g()", "function g not found");
+    verifyThrows(scope, "i2()", "i2 is not a function");
+    verifyThrows(scope, "f()", "Expected 2 arguments but got 0");
+    verifyThrows(scope, "f(i1)", "Expected 2 arguments but got 1");
+    verifyThrows(scope, "f(b1, b1)", "Expected int but got bool");
+
+    verifySucc(scope, "f(i1, b1)", { tag: "int" });
+    verifySucc(scope, "f(0, b1)", { tag: "int" });
+    verifySucc(scope, "f(f(0, False), b1)", { tag: "int" });
   });
 });
 

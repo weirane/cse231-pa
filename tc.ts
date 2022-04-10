@@ -45,7 +45,7 @@ export function tcExpr(e: Expr, scope: Scope): Type {
       for (const [i, arg] of e.args.entries()) {
         const argType = tcExpr(arg, scope);
         if (!sameType(argType, typ.args[i])) {
-          throw new TypeError(`Expected ${typ.args[i]} but got ${argType}`);
+          throw new TypeError(`Expected ${typ.args[i].tag} but got ${argType.tag}`);
         }
       }
       return typ.ret;
