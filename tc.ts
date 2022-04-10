@@ -194,19 +194,13 @@ export function tcProgram(p: Program) {
     if (def.tag === "func_def") {
       const func = def.decl;
       const bodyvars = new Map<string, Type>();
-      for (const arg of func.params) {
+      func.params.concat(func.var_def.map((vd) => vd.var_)).forEach((tyvar) => {
         // check if arg is already defined
-        if (bodyvars.has(arg.name)) {
-          throw new CompileError(`Duplicate declaration of identifier ${arg.name}`);
+        if (bodyvars.has(tyvar.name)) {
+          throw new CompileError(`Duplicate declaration of identifier ${tyvar.name}`);
         }
-        bodyvars.set(arg.name, arg.typ);
-      }
-      for (const vardef of func.var_def) {
-        if (bodyvars.has(vardef.var_.name)) {
-          throw new CompileError(`Duplicate declaration of identifier ${vardef.var_.name}`);
-        }
-        bodyvars.set(vardef.var_.name, vardef.var_.typ);
-      }
+        bodyvars.set(tyvar.name, tyvar.typ);
+      });
       scope.push(bodyvars);
       for (const stmt of func.body) {
         tcStmt(stmt, scope, func.ret);
