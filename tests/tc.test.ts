@@ -33,6 +33,10 @@ describe("typecheck statements", () => {
     const p = parseProgram(code);
     expect(() => t.tcProgram(p)).to.throw(message);
   };
+  const verifySucc = (code: string) => {
+    const p = parseProgram(code);
+    t.tcProgram(p);
+  };
 
   it("checks init/assigns", () => {
     verifyThrows(`f: bool = 0`, "Cannot assign");
@@ -49,6 +53,85 @@ def f(a: int):
   b: bool = True
   b = 0`,
       "Cannot assign"
+    );
+  });
+
+  it("checks if and while", () => {
+    verifyThrows(
+      `
+b: int = 0
+if b:
+  b = False`,
+      "Condition expression cannot be of type int"
+    );
+    verifyThrows(
+      `
+def f():
+  pass
+if f():
+  pass`,
+      "Condition expression cannot be of type none"
+    );
+  });
+
+  it("checks the return type", () => {
+    verifyThrows(
+      `
+def a():
+  return 1`,
+      "int returned but none expected"
+    );
+    verifyThrows(
+      `
+def a() -> int:
+  pass`,
+      "Function must return a value"
+    );
+    verifyThrows(
+      `
+def a() -> int:
+  x: int = 0
+  if x == 0:
+    return 1
+  else:
+    pass`,
+      "Function must return a value"
+    );
+    verifyThrows(
+      `
+def a() -> int:
+  x: int = 0
+  if x == 0:
+    return 1
+  else:
+    return False`,
+      "bool returned but int expected"
+    );
+    verifySucc(
+      `
+def a() -> int:
+  x: int = 0
+  return x`
+    );
+    verifySucc(
+      `
+def a() -> int:
+  x: int = 0
+  if x == 0:
+    return 1
+  else:
+    return 2`
+    );
+    verifySucc(
+      `
+def a() -> int:
+  x: int = 0
+  if x == 0:
+    return 1
+  elif x == 1:
+    return 2
+  else:
+    return 3`
     );
   });
 });

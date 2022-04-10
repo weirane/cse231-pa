@@ -106,8 +106,8 @@ export function tcStmt(s: Stmt, scope: Scope, retType: Type | null) {
         throw new TypeError("Cannot return from top-level");
       }
       const valTyp = tcExpr(s.value, scope);
-      if (valTyp !== retType) {
-        throw new TypeError(`${valTyp} returned but ${retType} expected`);
+      if (!sameType(valTyp, retType)) {
+        throw new TypeError(`${valTyp.tag} returned but ${retType.tag} expected`);
       }
       return;
     }
@@ -171,6 +171,21 @@ export function scopeFromDecls(decls: Decl[]): Scope {
   return [topScope];
 }
 
+/// checks if a statement body returns in all control paths
+export function blockReturns(s: Stmt[]): boolean {
+  if (s.length === 0) {
+    return false;
+  }
+  const last = s[s.length - 1];
+  if (last.tag === "return") {
+    return true;
+  } else if (last.tag === "if") {
+    return last.branches.every((b) => blockReturns(b.body)) && blockReturns(last.else_);
+  } else {
+    return false;
+  }
+}
+
 export function tcProgram(p: Program) {
   const scope = scopeFromDecls(p.decls);
 
@@ -195,6 +210,10 @@ export function tcProgram(p: Program) {
       scope.push(bodyvars);
       for (const stmt of func.body) {
         tcStmt(stmt, scope, func.ret);
+      }
+      // check for return type
+      if (func.ret.tag !== "none" && !blockReturns(func.body)) {
+        throw new TypeError("Function must return a value");
       }
       scope.pop();
     }
