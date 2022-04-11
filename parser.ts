@@ -107,6 +107,9 @@ export function traverseVarDef(s: string, t: TreeCursor): VarDef | null {
   t.nextSibling();
   const value = traverseExpr(s, t);
   t.parent();
+  if (value.tag !== "literal") {
+    throw new ParseError("Can only initialize with literal");
+  }
   return { var_, value };
 }
 

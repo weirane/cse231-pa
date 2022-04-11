@@ -173,6 +173,13 @@ def f():
       stmts: [],
     });
   });
+
+  it("doesn't allow init with expr", () => {
+    const prog = "x: int = 2 + 3";
+    expect(() => p.parseProgram(prog)).to.throw("initialize with literal");
+    const prog2 = "x: int = 5\nx = 2 + 3";
+    p.parseProgram(prog2);
+  });
 });
 
 describe("traverseExpr function", () => {
