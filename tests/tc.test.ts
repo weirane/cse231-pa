@@ -132,6 +132,14 @@ def a() -> int:
 def a() -> int:
   x: int = 0
   if x == 0:
+    return 1`,
+      "Function must return a value"
+    );
+    verifyThrows(
+      `
+def a() -> int:
+  x: int = 0
+  if x == 0:
     return 1
   else:
     return False`,
