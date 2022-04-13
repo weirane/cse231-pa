@@ -292,6 +292,10 @@ export function traverseExpr(s: string, t: TreeCursor): Expr {
       t.firstChild();
       t.nextSibling();
       const expr = traverseExpr(s, t);
+      t.nextSibling();
+      if (t.name === "⚠") {
+        throw new ParseError("unmatched parenthesis");
+      }
       t.parent();
       return expr;
     }
@@ -338,11 +342,14 @@ export function traverseArguments(c: TreeCursor, s: string): Expr[] {
   c.firstChild(); // Focuses on open paren
   const args = [];
   c.nextSibling();
-  while (c.type.name !== ")") {
+  while (c.type.name !== ")" && c.type.name !== "⚠") {
     let expr = traverseExpr(s, c);
     args.push(expr);
     c.nextSibling(); // Focuses on either "," or ")"
     c.nextSibling(); // Focuses on a VariableName
+  }
+  if (c.type.name === "⚠") {
+    throw new ParseError("unmatched parenthesis");
   }
   c.parent(); // Pop to ArgList
   return args;

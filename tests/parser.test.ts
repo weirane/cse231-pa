@@ -216,6 +216,22 @@ describe("traverseExpr function", () => {
     });
   });
 
+  it("parses an unmatched paren", () => {
+    const source = "(2+3";
+    const cursor = parser.parse(source).cursor();
+    cursor.firstChild();
+    cursor.firstChild();
+    expect(() => p.traverseExpr(source, cursor)).to.throw("unmatched parenthesis");
+  });
+
+  it("parses an unmatched paren in call expr", () => {
+    const source = "print(2";
+    const cursor = parser.parse(source).cursor();
+    cursor.firstChild();
+    cursor.firstChild();
+    expect(() => p.traverseExpr(source, cursor)).to.throw("unmatched parenthesis");
+  });
+
   it("parses expr with ops", () => {
     verify("-1", { tag: "uniop", op: "-", value: exprFromLiteral(1) });
     verify("not True", { tag: "uniop", op: "not", value: exprFromLiteral(true) });
