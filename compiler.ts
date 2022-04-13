@@ -36,8 +36,10 @@ export async function run(watSource: string): Promise<number> {
 
 export function codeGenExpr(expr: Expr): Array<string> {
   switch (expr.tag) {
-    case "id":
-      return [`(local.get $${expr.name})`];
+    case "id": {
+      const scope = expr.a.isGlobal ? "global" : "local";
+      return [`(${scope}.get $${expr.name})`];
+    }
     case "literal":
       const tsvalue = expr.value;
       let v: number;

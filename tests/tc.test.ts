@@ -172,6 +172,16 @@ def a() -> int:
     return 3`
     );
   });
+
+  it("doesn't allow assign to variables in the outer scope", () => {
+    verifyThrows(
+      `
+x: int = 0
+def f():
+  x = 3`,
+      "Cannot assign variable that is not explicitly declared in this scope"
+    );
+  });
 });
 
 describe("typecheck programs", () => {

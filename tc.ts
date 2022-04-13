@@ -95,6 +95,11 @@ export function tcStmt(s: Stmt, scope: Scope, retType: Type | null) {
       if (!sameType(ty, rhsTy)) {
         throw new TypeError(`Cannot assign ${rhsTy.tag} to ${ty.tag}`);
       }
+      if (!scope[scope.length - 1].has(s.name)) {
+        throw new CompileError(
+          `Cannot assign variable that is not explicitly declared in this scope: ${s.name}`
+        );
+      }
       return;
     }
     case "expr": {
