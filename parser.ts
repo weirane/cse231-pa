@@ -194,27 +194,40 @@ export function traverseBody(s: string, t: TreeCursor): Stmt[] {
 
 export function traverseIfStmt(s: string, t: TreeCursor): Stmt {
   t.firstChild();
-  const branches: IfBranch[] = [];
-  while (branches.length === 0 || t.type.name === "elif") {
+  if (t.name !== "if") {
+    throw new Error("expecting an if node");
+  }
+  t.nextSibling(); // skip the "if" or "elif"
+  const cond = traverseExpr(s, t);
+  t.nextSibling();
+  const then = traverseBody(s, t);
+  t.nextSibling();
+  const else_ = traverseElseBranch(s, t, 1);
+  t.parent();
+  return { tag: "if", cond, then, else_ };
+}
+
+function traverseElseBranch(s: string, t: TreeCursor, depth: number): Stmt[] {
+  if (depth > 2) {
+    throw new ParseError("more than one elif not supported");
+  }
+  if (t.type.name === "elif") {
     t.nextSibling(); // skip the "if" or "elif"
     const cond = traverseExpr(s, t);
     t.nextSibling();
-    const body = traverseBody(s, t);
+    const then = traverseBody(s, t);
     t.nextSibling();
-    branches.push({ cond, body });
-  }
-
-  let else_: Stmt[] = [];
-  if (t.type.name === "else") {
+    const else_ = traverseElseBranch(s, t, depth + 1);
+    return [{ tag: "if", cond, then, else_ }];
+  } else if (t.type.name === "else") {
     t.nextSibling();
-    else_ = traverseBody(s, t);
+    return traverseBody(s, t);
+  } else if (t.type.name === "Body") {
+    // reached the end
+    return [];
+  } else {
+    throw new Error("unexpected node type " + t.type.name);
   }
-
-  t.parent();
-  if (branches.length > 2) {
-    throw new ParseError("more than one elif not supported");
-  }
-  return { tag: "if", branches, else_ };
 }
 
 export function traverseWhileStmt(s: string, t: TreeCursor): Stmt {

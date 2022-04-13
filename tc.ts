@@ -114,15 +114,13 @@ export function tcStmt(s: Stmt, scope: Scope, retType: Type | null) {
     case "pass":
       return;
     case "if": {
-      for (const branch of s.branches) {
-        // check if condition is bool
-        const condTy = tcExpr(branch.cond, scope);
-        if (condTy.tag !== "bool") {
-          throw new TypeError(`Condition expression cannot be of type ${condTy.tag}`);
-        }
-        for (const stmt of branch.body) {
-          tcStmt(stmt, scope, retType);
-        }
+      // check if condition is bool
+      const condTy = tcExpr(s.cond, scope);
+      if (condTy.tag !== "bool") {
+        throw new TypeError(`Condition expression cannot be of type ${condTy.tag}`);
+      }
+      for (const stmt of s.then) {
+        tcStmt(stmt, scope, retType);
       }
       for (const stmt of s.else_) {
         tcStmt(stmt, scope, retType);
@@ -180,7 +178,7 @@ export function blockReturns(s: Stmt[]): boolean {
   if (last.tag === "return") {
     return true;
   } else if (last.tag === "if") {
-    return last.branches.every((b) => blockReturns(b.body)) && blockReturns(last.else_);
+    return blockReturns(last.then) && blockReturns(last.else_);
   } else {
     return false;
   }

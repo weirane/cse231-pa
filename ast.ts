@@ -22,7 +22,7 @@ export type FuncDef = {
 
 export type Stmt =
   | { tag: "assign"; name: string; value: Expr }
-  | { tag: "if"; branches: IfBranch[]; else_: Stmt[] }
+  | { tag: "if"; cond: Expr; then: Stmt[]; else_: Stmt[] }
   | { tag: "while"; cond: Expr; body: Stmt[] }
   | { tag: "pass" }
   | { tag: "expr"; expr: Expr }

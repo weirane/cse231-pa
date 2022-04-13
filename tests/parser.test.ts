@@ -319,29 +319,29 @@ describe("traverseStmt function", () => {
   it("parses if statements", () => {
     verify("if True: pass", {
       tag: "if",
-      branches: [{ cond: exprFromLiteral(true), body: [{ tag: "pass" }] }],
+      cond: exprFromLiteral(true),
+      then: [{ tag: "pass" }],
       else_: [],
     });
     verify("if True: pass\nelse: pass", {
       tag: "if",
-      branches: [{ cond: exprFromLiteral(true), body: [{ tag: "pass" }] }],
+      cond: exprFromLiteral(true),
+      then: [{ tag: "pass" }],
       else_: [{ tag: "pass" }],
     });
     verify("if True: pass\nelif a: pass", {
       tag: "if",
-      branches: [
-        { cond: exprFromLiteral(true), body: [{ tag: "pass" }] },
-        { cond: namedVar("a"), body: [{ tag: "pass" }] },
-      ],
-      else_: [],
+      cond: exprFromLiteral(true),
+      then: [{ tag: "pass" }],
+      else_: [{ tag: "if", cond: namedVar("a"), then: [{ tag: "pass" }], else_: [] }],
     });
     verify("if True: pass\nelif a: pass\nelse: pass", {
       tag: "if",
-      branches: [
-        { cond: exprFromLiteral(true), body: [{ tag: "pass" }] },
-        { cond: namedVar("a"), body: [{ tag: "pass" }] },
+      cond: exprFromLiteral(true),
+      then: [{ tag: "pass" }],
+      else_: [
+        { tag: "if", cond: namedVar("a"), then: [{ tag: "pass" }], else_: [{ tag: "pass" }] },
       ],
-      else_: [{ tag: "pass" }],
     });
   });
 
