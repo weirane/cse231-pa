@@ -37,7 +37,7 @@ export async function run(watSource: string): Promise<number> {
 export function codeGenExpr(expr: Expr): Array<string> {
   switch (expr.tag) {
     case "id": {
-      const scope = expr.a.isGlobal ? "global" : "local";
+      const scope = expr.isGlobal ? "global" : "local";
       return [`(${scope}.get $${expr.name})`];
     }
     case "literal":

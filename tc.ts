@@ -14,74 +14,80 @@ function typeOfVar(name: string, scope: Scope): Type | null {
 }
 
 export function tcExpr(e: Expr, scope: Scope): Type {
-  switch (e.tag) {
-    case "literal":
-      switch (e.value.tag) {
-        case "number":
-          return { tag: "int" };
-        case "bool":
+  function inner(e: Expr, scope: Scope): Type {
+    switch (e.tag) {
+      case "literal":
+        switch (e.value.tag) {
+          case "number":
+            return { tag: "int" };
+          case "bool":
+            return { tag: "bool" };
+          case "none":
+            return { tag: "none" };
+        }
+      case "id": {
+        const ty = typeOfVar(e.name, scope);
+        if (ty === null) {
+          throw new TypeError(`Undefined variable ${e.name}`);
+        }
+        e.isGlobal = scope[0].has(e.name);
+        return ty;
+      }
+      case "call": {
+        const typ = typeOfVar(e.name, scope);
+        if (typ === null) {
+          throw new TypeError(`function ${e.name} not found`);
+        }
+        if (typ.tag !== "func") {
+          throw new TypeError(`${e.name} is not a function`);
+        }
+        if (typ.args.length !== e.args.length) {
+          throw new TypeError(`Expected ${typ.args.length} arguments but got ${e.args.length}`);
+        }
+        for (const [i, arg] of e.args.entries()) {
+          const argType = tcExpr(arg, scope);
+          if (!sameType(argType, typ.args[i])) {
+            throw new TypeError(`Expected ${typ.args[i].tag} but got ${argType.tag}`);
+          }
+        }
+        return typ.ret;
+      }
+      case "uniop":
+        if (e.op === "not") {
+          const argType = tcExpr(e.value, scope);
+          if (argType.tag !== "bool") {
+            throw new TypeError(`Expected bool with 'not' but got ${argType.tag}`);
+          }
           return { tag: "bool" };
-        case "none":
-          return { tag: "none" };
-      }
-    case "id": {
-      const ty = typeOfVar(e.name, scope);
-      if (ty === null) {
-        throw new TypeError(`Undefined variable ${e.name}`);
-      }
-      return ty;
-    }
-    case "call": {
-      const typ = typeOfVar(e.name, scope);
-      if (typ === null) {
-        throw new TypeError(`function ${e.name} not found`);
-      }
-      if (typ.tag !== "func") {
-        throw new TypeError(`${e.name} is not a function`);
-      }
-      if (typ.args.length !== e.args.length) {
-        throw new TypeError(`Expected ${typ.args.length} arguments but got ${e.args.length}`);
-      }
-      for (const [i, arg] of e.args.entries()) {
-        const argType = tcExpr(arg, scope);
-        if (!sameType(argType, typ.args[i])) {
-          throw new TypeError(`Expected ${typ.args[i].tag} but got ${argType.tag}`);
+        } else if (e.op === "-") {
+          const argType = tcExpr(e.value, scope);
+          if (argType.tag !== "int") {
+            throw new TypeError(`Expected int with '-' but got ${argType.tag}`);
+          }
+          return { tag: "int" };
+        } else {
+          throw new Error(`Unknown unary operator ${e.op}`);
         }
-      }
-      return typ.ret;
-    }
-    case "uniop":
-      if (e.op === "not") {
-        const argType = tcExpr(e.value, scope);
-        if (argType.tag !== "bool") {
-          throw new TypeError(`Expected bool with 'not' but got ${argType.tag}`);
+      case "binop": {
+        const argType = BINOP_ARGS[e.op];
+        if (argType === undefined) {
+          throw new Error(`Unknown binary operator ${e.op}`);
         }
-        return { tag: "bool" };
-      } else if (e.op === "-") {
-        const argType = tcExpr(e.value, scope);
-        if (argType.tag !== "int") {
-          throw new TypeError(`Expected int with '-' but got ${argType.tag}`);
+        const retType = BINOP_RETS[e.op];
+        const leftType = tcExpr(e.left, scope);
+        const rightType = tcExpr(e.right, scope);
+        const verb = BINOP_VERB[e.op];
+        if (!sameType(leftType, argType[0]) || !sameType(rightType, argType[1])) {
+          const showverb = verb === "compare" ? verb : `\`${verb}\``;
+          throw new TypeError(`Cannot ${showverb} ${leftType.tag} with ${rightType.tag}`);
         }
-        return { tag: "int" };
-      } else {
-        throw new Error(`Unknown unary operator ${e.op}`);
+        return retType;
       }
-    case "binop": {
-      const argType = BINOP_ARGS[e.op];
-      if (argType === undefined) {
-        throw new Error(`Unknown binary operator ${e.op}`);
-      }
-      const retType = BINOP_RETS[e.op];
-      const leftType = tcExpr(e.left, scope);
-      const rightType = tcExpr(e.right, scope);
-      const verb = BINOP_VERB[e.op];
-      if (!sameType(leftType, argType[0]) || !sameType(rightType, argType[1])) {
-        const showverb = verb === "compare" ? verb : `\`${verb}\``;
-        throw new TypeError(`Cannot ${showverb} ${leftType.tag} with ${rightType.tag}`);
-      }
-      return retType;
     }
   }
+  const typ = inner(e, scope);
+  e.a = { typ };
+  return typ;
 }
 
 export function tcStmt(s: Stmt, scope: Scope, retType: Type | null) {

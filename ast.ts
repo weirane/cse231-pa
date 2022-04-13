@@ -30,12 +30,16 @@ export type Stmt =
 
 export type IfBranch = { cond: Expr; body: Stmt[] };
 
+export type EA = {
+  typ: Type;
+};
+
 export type Expr =
-  | { tag: "literal"; value: Literal }
-  | { tag: "id"; name: string }
-  | { tag: "uniop"; op: string; value: Expr }
-  | { tag: "binop"; op: string; left: Expr; right: Expr }
-  | { tag: "call"; name: string; args: Expr[] };
+  | { a?: EA; tag: "literal"; value: Literal }
+  | { a?: EA; tag: "id"; name: string; isGlobal?: boolean }
+  | { a?: EA; tag: "uniop"; op: string; value: Expr }
+  | { a?: EA; tag: "binop"; op: string; left: Expr; right: Expr }
+  | { a?: EA; tag: "call"; name: string; args: Expr[] };
 
 export const BINOP = ["+", "-", "*", "//", "%", "==", "!=", "<=", ">=", "<", ">", "is"];
 
