@@ -84,10 +84,11 @@ export function codeGenStmt(stmt: Stmt): Array<string> {
       var valStmts = codeGenExpr(stmt.value);
       valStmts.push("return");
       return valStmts;
-    case "assign":
-      var valStmts = codeGenExpr(stmt.value);
-      valStmts.push(`(local.set $${stmt.name})`);
-      return valStmts;
+    case "assign": {
+      const valStmts = codeGenExpr(stmt.value);
+      const scope = stmt.isGlobal ? "global" : "local";
+      return valStmts.concat([`(${scope}.set $${stmt.name})`]);
+    }
     case "expr":
       const result = codeGenExpr(stmt.expr);
       result.push("(local.set $scratch)");
@@ -152,11 +153,11 @@ export function compile(source: string): string {
   (func $pow (import "imports" "pow") (param i32) (param i32) (result i32))
   (func $neg (import "imports" "neg") (param i32) (result i32))
   (func $not (import "imports" "not") (param i32) (result i32))
-  ${decls}
+${decls}
   (func (export "_start") ${retType}
     (local $scratch i32)
-    ${stmts}
-    ${retVal}
+${stmts}
+${retVal}
   )
 )
 `;

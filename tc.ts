@@ -110,6 +110,9 @@ export function tcStmt(s: Stmt, scope: Scope, retType: Type | null) {
           `Cannot assign variable that is not explicitly declared in this scope: ${s.name}`
         );
       }
+      if (scope.length === 1) {
+        s.isGlobal = true;
+      }
       return;
     }
     case "expr": {

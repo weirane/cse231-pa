@@ -21,7 +21,7 @@ export type FuncDef = {
 };
 
 export type Stmt =
-  | { tag: "assign"; name: string; value: Expr }
+  | { tag: "assign"; name: string; value: Expr; isGlobal?: boolean }
   | { tag: "if"; cond: Expr; then: Stmt[]; else_: Stmt[] }
   | { tag: "while"; cond: Expr; body: Stmt[] }
   | { tag: "pass" }
