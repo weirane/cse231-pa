@@ -2,6 +2,7 @@ import wabt from "wabt";
 import { Stmt, Expr, Decl, BINOP_OPCODE } from "./ast";
 import { parseProgram } from "./parser";
 import { tcProgram } from "./tc";
+import { CompileError } from "./util";
 
 export const mathlib = {
   abs: Math.abs,
@@ -41,9 +42,21 @@ export function codeGenExpr(expr: Expr): Array<string> {
         v = 0;
       }
       return [`(i32.const ${v})`];
-    case "call":
+    case "call": {
       const valStmts = expr.args.flatMap(codeGenExpr);
-      return valStmts.concat([`(call $${expr.name})`]);
+      let funcname: string;
+      if (expr.name === "print") {
+        const argtype = expr.args[0].a.typ.tag;
+        if (argtype === "func") {
+          throw new CompileError("Cannot print a function");
+        } else {
+          funcname = `print_${argtype}`;
+        }
+      } else {
+        funcname = expr.name;
+      }
+      return valStmts.concat([`(call $${funcname})`]);
+    }
     case "uniop":
       const arg = codeGenExpr(expr.value);
       // op can only be - or not
@@ -57,7 +70,7 @@ export function codeGenExpr(expr: Expr): Array<string> {
         // pop two values and return true
         op = ["(drop)", "(drop)", "(i32.const 1)"];
       } else {
-        op = [`(${BINOP_OPCODE})`];
+        op = [`(${BINOP_OPCODE[expr.op]})`];
       }
       return left.concat(right).concat(op);
   }
@@ -130,15 +143,15 @@ export function compile(source: string): string {
   const retVal = isExpr ? "(local.get $scratch)" : "";
 
   return `(module
-  (func $print_int (import "imports" "print") (param i32) (result i32))
-  (func $print_none (import "imports" "print") (param i32) (result i32))
-  (func $print_bool (import "imports" "print") (param i32) (result i32))
+  (func $print_int (import "imports" "print_int") (param i32) (result i32))
+  (func $print_none (import "imports" "print_none") (param i32) (result i32))
+  (func $print_bool (import "imports" "print_bool") (param i32) (result i32))
   (func $abs (import "imports" "abs") (param i32) (result i32))
   (func $max (import "imports" "max") (param i32) (param i32) (result i32))
   (func $min (import "imports" "min") (param i32) (param i32) (result i32))
   (func $pow (import "imports" "pow") (param i32) (param i32) (result i32))
   (func $neg (import "imports" "neg") (param i32) (result i32))
-  (func $not (import "imports" "neg") (param i32) (result i32))
+  (func $not (import "imports" "not") (param i32) (result i32))
   ${decls}
   (func (export "_start") ${retType}
     (local $scratch i32)

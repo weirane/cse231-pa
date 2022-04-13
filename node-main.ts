@@ -1,8 +1,10 @@
 import { compile, run, mathlib } from "./compiler";
+import fs from "fs";
 
 // command to run:
 // node node-main.js 987
-const input = process.argv[2];
+const a2 = process.argv[2];
+const input = a2 === "" ? fs.readFileSync(process.argv[3], "utf8") : a2;
 const result = compile(input);
 console.log(result);
 const imports = {

@@ -46,6 +46,10 @@ export function tcExpr(e: Expr, scope: Scope): Type {
         }
         for (const [i, arg] of e.args.entries()) {
           const argType = tcExpr(arg, scope);
+          // special case for print
+          if (e.name === "print") {
+            return e.args[0].a.typ;
+          }
           if (!sameType(argType, typ.args[i])) {
             throw new TypeError(`Expected ${typ.args[i].tag} but got ${argType.tag}`);
           }
@@ -152,7 +156,13 @@ export function tcStmt(s: Stmt, scope: Scope, retType: Type | null) {
 }
 
 export function scopeFromDecls(decls: Decl[]): Scope {
-  const topScope = new Map<string, Type>();
+  const topScope = new Map<string, Type>([
+    ["print", { tag: "func", args: [{ tag: "int" }], ret: { tag: "none" } }],
+    ["abs", { tag: "func", args: [{ tag: "int" }], ret: { tag: "int" } }],
+    ["min", { tag: "func", args: [{ tag: "int" }, { tag: "int" }], ret: { tag: "int" } }],
+    ["max", { tag: "func", args: [{ tag: "int" }, { tag: "int" }], ret: { tag: "int" } }],
+    ["pow", { tag: "func", args: [{ tag: "int" }, { tag: "int" }], ret: { tag: "int" } }],
+  ]);
   for (const def of decls) {
     if (def.tag === "func_def") {
       const func = def.decl;
