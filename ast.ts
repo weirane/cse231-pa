@@ -85,6 +85,21 @@ export const BINOP_VERB: { [key: string]: string } = {
   is: "is",
 };
 
+export const BINOP_OPCODE: { [key: string]: string } = {
+  "+": "i32.add",
+  "-": "i32.sub",
+  "*": "i32.mul",
+  "//": "i32.div_s",
+  "%": "i32.rem_s",
+  "==": "i32.eq",
+  "!=": "i32.ne",
+  "<=": "i32.le_s",
+  ">=": "i32.ge_s",
+  "<": "i32.lt_s",
+  ">": "i32.gt_s",
+  is: "",
+};
+
 export type Literal =
   | { tag: "number"; value: number }
   | { tag: "bool"; value: boolean }

@@ -1,5 +1,7 @@
 import { compile, run } from "./compiler";
 
+(window as any)["runWat"] = run;
+
 document.addEventListener("DOMContentLoaded", async () => {
   const runButton = document.getElementById("run");
   const userCode = document.getElementById("user-code") as HTMLTextAreaElement;
