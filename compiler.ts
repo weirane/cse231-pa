@@ -12,22 +12,12 @@ export const mathlib = {
   not: (x: any) => (x === 0 ? 1 : 0),
 };
 
-export async function run(watSource: string): Promise<number> {
+export async function run(watSource: string, imports: any): Promise<number> {
   const wabtApi = await wabt();
 
   // Next three lines are wat2wasm
   const parsed = wabtApi.parseWat("example", watSource);
   const binary = parsed.toBinary({});
-  const imports = {
-    print: (arg: any) => {
-      console.log("Logging from WASM: ", arg);
-      const elt = document.createElement("pre");
-      document.getElementById("output").appendChild(elt);
-      elt.innerText = arg;
-      return arg;
-    },
-    ...mathlib,
-  };
   const wasmModule = await WebAssembly.instantiate(binary.buffer, { imports });
 
   // This next line is wasm-interp
@@ -140,7 +130,9 @@ export function compile(source: string): string {
   const retVal = isExpr ? "(local.get $scratch)" : "";
 
   return `(module
-  (func $print (import "imports" "print") (param i32) (result i32))
+  (func $print_int (import "imports" "print") (param i32) (result i32))
+  (func $print_none (import "imports" "print") (param i32) (result i32))
+  (func $print_bool (import "imports" "print") (param i32) (result i32))
   (func $abs (import "imports" "abs") (param i32) (result i32))
   (func $max (import "imports" "max") (param i32) (param i32) (result i32))
   (func $min (import "imports" "min") (param i32) (param i32) (result i32))
