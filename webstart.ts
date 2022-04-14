@@ -5,23 +5,20 @@ import { compile, run, mathlib } from "./compiler";
 const imports = {
   print_int: (arg: any) => {
     console.log("Logging from WASM: ", arg);
-    const elt = document.createElement("pre");
-    document.getElementById("output").appendChild(elt);
-    elt.innerText = arg;
+    const output = document.getElementById("output");
+    output.innerText += arg + "\n";
     return arg;
   },
   print_none: (arg: any) => {
     console.log("Logging from WASM: ", arg);
-    const elt = document.createElement("pre");
-    document.getElementById("output").appendChild(elt);
-    elt.innerText = "None";
+    const output = document.getElementById("output");
+    output.innerText += "None\n";
     return arg;
   },
   print_bool: (arg: any) => {
     console.log("Logging from WASM: ", arg);
-    const elt = document.createElement("pre");
-    document.getElementById("output").appendChild(elt);
-    elt.innerText = arg === 0 ? "False" : "True";
+    const output = document.getElementById("output");
+    output.innerText += arg === 0 ? "False\n" : "True\n";
     return arg;
   },
   ...mathlib,
@@ -31,19 +28,20 @@ document.addEventListener("DOMContentLoaded", async () => {
   const runButton = document.getElementById("run");
   const userCode = document.getElementById("user-code") as HTMLTextAreaElement;
   runButton.addEventListener("click", async () => {
-    const program = userCode.value;
     const output = document.getElementById("output");
+    output.innerText = "";
+    const program = userCode.value;
+    const ret = document.getElementById("return");
     try {
       const wat = compile(program);
-      const code = document.getElementById("generated-code");
-      code.textContent = wat;
+      console.log(wat);
       const result = await run(wat, imports);
-      output.textContent = String(result);
-      output.setAttribute("style", "color: black");
+      ret.textContent = String(result);
+      ret.setAttribute("style", "color: black");
     } catch (e) {
       console.error(e);
-      output.textContent = String(e);
-      output.setAttribute("style", "color: red");
+      ret.textContent = String(e);
+      ret.setAttribute("style", "color: red");
     }
   });
 
