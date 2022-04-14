@@ -138,7 +138,7 @@ export function compile(source: string): string {
   const stmts = ast.stmts.flatMap(codeGenStmt).join("\n");
 
   const lastStmt = ast.stmts[ast.stmts.length - 1];
-  const isExpr = lastStmt.tag === "expr";
+  const isExpr = lastStmt?.tag === "expr";
   const retType = isExpr ? "(result i32)" : "";
   const retVal = isExpr ? "(local.get $scratch)" : "";
 
