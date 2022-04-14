@@ -47,7 +47,7 @@ export function codeGenExpr(expr: Expr): Array<string> {
       if (expr.name === "print") {
         const argtype = expr.args[0].a.typ.tag;
         if (argtype === "func") {
-          throw new CompileError("Cannot print a function");
+          throw new TypeError("Cannot print a function");
         } else {
           funcname = `print_${argtype}`;
         }
