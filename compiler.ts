@@ -2,7 +2,6 @@ import wabt from "wabt";
 import { Stmt, Expr, Decl, BINOP_OPCODE } from "./ast";
 import { parseProgram } from "./parser";
 import { tcProgram } from "./tc";
-import { CompileError } from "./util";
 
 export const mathlib = {
   abs: Math.abs,
