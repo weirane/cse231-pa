@@ -6,6 +6,7 @@
   "scripts": {
     "test": "env TS_NODE_COMPILER_OPTIONS='{\"module\": \"commonjs\" }' mocha -r ts-node/register 'tests/**/*.test.ts'",
     "build-web": "webpack && cp index.html build/",
+    "build-cli": "tsc node-main.ts --lib es2019,dom --downlevelIteration --esModuleInterop --moduleResolution node --outDir cli/",
     "build-cli-repl": "tsc node-main.ts --lib es2019,dom --downlevelIteration --esModuleInterop --moduleResolution node --outDir cli/"
   },
   "author": "",
