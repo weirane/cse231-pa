@@ -402,6 +402,23 @@ describe("traverseExpr function", () => {
     "Foo(1, 2)",
     "constructors take no arguments"
   );
+
+  itVerifies("parses a field access", "o.f", {
+    tag: "field",
+    expr: { tag: "id", name: "o" },
+    name: "f",
+  });
+
+  itVerifies("parses a field access on complex expr", "(o + 1).f", {
+    tag: "field",
+    expr: {
+      tag: "binop",
+      op: "+",
+      left: { tag: "id", name: "o" },
+      right: exprFromLiteral(1),
+    },
+    name: "f",
+  });
 });
 
 describe("traverseStmt function", () => {

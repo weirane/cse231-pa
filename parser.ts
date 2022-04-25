@@ -401,6 +401,15 @@ export function traverseExpr(s: string, t: TreeCursor): Expr {
       }
       return { tag: "call", name, args, receiver };
     }
+    case "MemberExpression": {
+      t.firstChild();
+      const expr = traverseExpr(s, t);
+      t.nextSibling(); // skip the .
+      t.nextSibling();
+      const name = s.substring(t.from, t.to);
+      t.parent();
+      return { tag: "field", expr, name };
+    }
     default:
       throw new Error("Invalid node type for expr: " + t.type.name);
   }
