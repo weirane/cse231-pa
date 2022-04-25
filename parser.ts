@@ -1,6 +1,17 @@
 import { TreeCursor } from "lezer";
 import { parser } from "lezer-python";
-import { TypedVar, Stmt, Expr, Type, Decl, VarDef, Program, FuncDef, IfBranch } from "./ast";
+import {
+  TypedVar,
+  Stmt,
+  Expr,
+  Type,
+  Decl,
+  VarDef,
+  Program,
+  FuncDef,
+  ClassDef,
+  LValue,
+} from "./ast";
 import { exprFromLiteral, BINOP } from "./ast";
 import { fmap_null } from "./util";
 
@@ -31,10 +42,10 @@ export function parseProgram(source: string): Program {
 }
 
 export function traverseDecl(s: string, t: TreeCursor): Decl | null {
-  if (t.type.name === "FunctionDefinition") {
+  if (t.type.name === "ClassDefinition") {
     return {
-      tag: "func_def",
-      decl: traverseFuncDef(s, t),
+      tag: "class_def",
+      decl: traverseClassDef(s, t),
     };
   } else if (t.type.name === "AssignStatement") {
     return fmap_null(traverseVarDef(s, t), (decl) => ({
@@ -44,6 +55,30 @@ export function traverseDecl(s: string, t: TreeCursor): Decl | null {
   } else {
     return null;
   }
+}
+
+export function traverseClassDef(s: string, t: TreeCursor): ClassDef {
+  t.firstChild();
+  t.nextSibling(); // skip the "class"
+  const name = s.substring(t.from, t.to);
+  t.nextSibling(); // skip the name
+  t.nextSibling(); // skip the superclass
+  t.firstChild(); // enter the body
+  t.nextSibling(); // skip the :
+  const methods: FuncDef[] = [];
+  const fields: VarDef[] = [];
+  do {
+    if (t.name === "FunctionDefinition") {
+      methods.push(traverseFuncDef(s, t));
+    } else if (t.name === "AssignStatement") {
+      fields.push(traverseVarDef(s, t));
+    } else {
+      throw new ParseError("unexpected node type " + t.name);
+    }
+  } while (t.nextSibling());
+  t.parent();
+  t.parent();
+  return { name, fields, methods };
 }
 
 export function traverseFuncDef(s: string, t: TreeCursor): FuncDef {
@@ -90,6 +125,10 @@ export function traverseFuncDef(s: string, t: TreeCursor): FuncDef {
   t.parent();
 
   t.parent();
+  // special restrictions
+  if (params.length === 0 || params[0].name !== "self") {
+    throw new ParseError("First parameter must be self");
+  }
   return { name, params, ret, var_def, body };
 }
 
@@ -152,14 +191,28 @@ export function traverseStmt(s: string, t: TreeCursor): Stmt {
       t.parent();
       return { tag: "return", value };
     }
-    case "AssignStatement":
+    case "AssignStatement": {
       t.firstChild(); // focused on name (the first child)
-      var name = s.substring(t.from, t.to);
+      let lvalue: LValue;
+      if (t.name === "MemberExpression") {
+        t.firstChild();
+        const expr = traverseExpr(s, t);
+        t.nextSibling(); // skip the "."
+        t.nextSibling();
+        const name = s.substring(t.from, t.to);
+        lvalue = { tag: "fieldas", expr, name };
+      } else if (t.name === "VariableName") {
+        const name = s.substring(t.from, t.to);
+        lvalue = { tag: "var", name };
+      } else {
+        throw new ParseError("unexpected node type in lvalue: " + t.name);
+      }
       t.nextSibling(); // focused on = sign. May need this for complex tasks, like +=!
       t.nextSibling(); // focused on the value expression
-      var value = traverseExpr(s, t);
+      const value = traverseExpr(s, t);
       t.parent();
-      return { tag: "assign", name, value };
+      return { tag: "assign", lvalue, value };
+    }
     case "ExpressionStatement":
       t.firstChild(); // The child is some kind of expression, the
       // ExpressionStatement is just a wrapper with no information
@@ -170,8 +223,6 @@ export function traverseStmt(s: string, t: TreeCursor): Stmt {
       return { tag: "pass" };
     case "IfStatement":
       return traverseIfStmt(s, t);
-    case "WhileStatement":
-      return traverseWhileStmt(s, t);
     default:
       throw new Error("Invalid node type for stmt: " + t.type.name);
   }
@@ -230,24 +281,15 @@ function traverseElseBranch(s: string, t: TreeCursor, depth: number): Stmt[] {
   }
 }
 
-export function traverseWhileStmt(s: string, t: TreeCursor): Stmt {
-  t.firstChild();
-  t.nextSibling(); // skip the "while"
-  const cond = traverseExpr(s, t);
-  t.nextSibling();
-  const body = traverseBody(s, t);
-  t.parent();
-  return { tag: "while", cond, body };
-}
-
 export function traverseType(s: string, t: TreeCursor): Type {
   switch (t.type.name) {
     case "VariableName":
       const name = s.substring(t.from, t.to);
       if (name !== "int" && name !== "bool") {
-        throw new ParseError("Unknown type: " + name);
+        return { tag: "object", name };
+      } else {
+        return { tag: name };
       }
-      return { tag: name };
     default:
       throw new Error("Invalid node type for traverseType: " + t.type.name);
   }
@@ -327,11 +369,37 @@ export function traverseExpr(s: string, t: TreeCursor): Expr {
     }
     case "CallExpression": {
       t.firstChild(); // Focus name
-      const name = s.substring(t.from, t.to);
+      let receiver: Expr | null;
+      let name: string;
+      if (t.name === "VariableName") {
+        receiver = null;
+        name = s.substring(t.from, t.to);
+      } else if (t.name === "MemberExpression") {
+        t.firstChild();
+        receiver = traverseExpr(s, t);
+        t.nextSibling(); // skip the .
+        t.nextSibling();
+        name = s.substring(t.from, t.to);
+        t.parent();
+      } else {
+        throw new Error("Invalid CallExpression " + t.name);
+      }
       t.nextSibling(); // Focus ArgList
       const args = traverseArguments(t, s);
       t.parent();
-      return { tag: "call", name, args };
+      // special restrictions
+      if (receiver === null) {
+        if (name === "print") {
+          if (args.length !== 1) {
+            throw new ParseError("print takes exactly one argument");
+          }
+        } else {
+          if (args.length !== 0) {
+            throw new ParseError("constructors take no arguments");
+          }
+        }
+      }
+      return { tag: "call", name, args, receiver };
     }
     default:
       throw new Error("Invalid node type for expr: " + t.type.name);
