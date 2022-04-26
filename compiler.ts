@@ -60,21 +60,16 @@ export function codeGenExpr(expr: Expr): Array<string> {
       // op can only be - or not
       const call = expr.op === "-" ? `(call $$neg)` : `(i32.eqz)`;
       return arg.concat([call]);
-    case "binop":
+    case "binop": {
       const left = codeGenExpr(expr.left);
       const right = codeGenExpr(expr.right);
-      let op: string[];
-      if (expr.op === "is") {
-        // pop two values and return true
-        op = ["(drop)", "(drop)", "(i32.const 1)"];
-      } else {
-        op = [`(${BINOP_OPCODE[expr.op]})`];
-      }
-      return left.concat(right).concat(op);
+      const op = `(${BINOP_OPCODE[expr.op]})`;
+      return left.concat(right, [op]);
+    }
   }
 }
 
-export function codeGenStmt(stmt: Stmt): Array<string> {
+export function codeGenStmt(stmt: Stmt, classdata: Classes): Array<string> {
   switch (stmt.tag) {
     case "pass":
       return [];

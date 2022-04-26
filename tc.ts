@@ -110,10 +110,21 @@ export function tcExpr(e: Expr, scope: Scope, classdata: Classes): Type {
         const retType = BINOP_RETS[e.op];
         const leftType = tcExpr(e.left, scope, classdata);
         const rightType = tcExpr(e.right, scope, classdata);
-        const verb = BINOP_VERB[e.op];
-        if (!sameType(leftType, argType[0]) || !sameType(rightType, argType[1])) {
-          const showverb = verb === "compare" ? verb : `\`${verb}\``;
-          throw new TypeError(`Cannot ${showverb} ${leftType.tag} with ${rightType.tag}`);
+        if (e.op === "is") {
+          if (
+            (leftType.tag === "object" || leftType.tag === "none") &&
+            (rightType.tag === "object" || rightType.tag === "none")
+          ) {
+            // good
+          } else {
+            throw new TypeError(`Cannot \`is\` ${leftType.tag} with ${rightType.tag}`);
+          }
+        } else {
+          if (!sameType(leftType, argType[0]) || !sameType(rightType, argType[1])) {
+            const verb = BINOP_VERB[e.op];
+            const showverb = verb === "compare" ? verb : `\`${verb}\``;
+            throw new TypeError(`Cannot ${showverb} ${leftType.tag} with ${rightType.tag}`);
+          }
         }
         return retType;
       }
