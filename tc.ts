@@ -293,7 +293,7 @@ export function blockReturns(s: Stmt[]): boolean {
   }
 }
 
-export function tcProgram(p: Program) {
+export function tcProgram(p: Program): [Classes, Type] {
   const [scope, classdata] = scopeFromDecls(p.decls);
 
   // type check function bodies
@@ -325,5 +325,16 @@ export function tcProgram(p: Program) {
   for (const stmt of p.stmts) {
     tcStmt(stmt, scope, classdata, null);
   }
-  return classdata;
+  let typ: Type;
+  if (p.stmts.length > 0) {
+    const last = p.stmts[p.stmts.length - 1];
+    if (last.tag === "expr") {
+      typ = last.expr.a.typ;
+    } else {
+      typ = { tag: "none" };
+    }
+  } else {
+    typ = { tag: "none" };
+  }
+  return [classdata, typ];
 }
