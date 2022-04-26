@@ -419,6 +419,12 @@ describe("traverseExpr function", () => {
     },
     name: "f",
   });
+
+  itVerifies("parses self in exprs", "self.f", {
+    tag: "field",
+    expr: { tag: "id", name: "self" },
+    name: "f",
+  });
 });
 
 describe("traverseStmt function", () => {

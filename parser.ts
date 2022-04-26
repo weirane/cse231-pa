@@ -331,6 +331,8 @@ export function traverseExpr(s: string, t: TreeCursor): Expr {
     }
     case "VariableName":
       return { tag: "id", name: s.substring(t.from, t.to) };
+    case "self":
+      return { tag: "id", name: "self" };
     case "ParenthesizedExpression": {
       t.firstChild();
       t.nextSibling();
