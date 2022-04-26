@@ -58,7 +58,7 @@ export function codeGenExpr(expr: Expr): Array<string> {
     case "uniop":
       const arg = codeGenExpr(expr.value);
       // op can only be - or not
-      const call = expr.op === "-" ? `(call $neg)` : `(i32.eqz)`;
+      const call = expr.op === "-" ? `(call $$neg)` : `(i32.eqz)`;
       return arg.concat([call]);
     case "binop":
       const left = codeGenExpr(expr.left);
@@ -149,7 +149,7 @@ export function compile(source: string): string {
   (func $max (import "imports" "max") (param i32) (param i32) (result i32))
   (func $min (import "imports" "min") (param i32) (param i32) (result i32))
   (func $pow (import "imports" "pow") (param i32) (param i32) (result i32))
-  (func $neg (import "imports" "neg") (param i32) (result i32))
+  (func $$neg (import "imports" "neg") (param i32) (result i32))
 ${decls}
   (func (export "_start") ${retType}
     (local $scratch i32)
