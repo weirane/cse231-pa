@@ -30,7 +30,8 @@ export function tcExpr(e: Expr, scope: Scope): Type {
         if (ty === null) {
           throw new TypeError(`Undefined variable ${e.name}`);
         }
-        e.isGlobal = scope[0].has(e.name);
+        // FIXME: only support two level scopes
+        e.isGlobal = scope.length === 1 || !scope[1].has(e.name);
         return ty;
       }
       case "call": {
