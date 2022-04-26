@@ -200,6 +200,7 @@ export function traverseStmt(s: string, t: TreeCursor): Stmt {
         t.nextSibling(); // skip the "."
         t.nextSibling();
         const name = s.substring(t.from, t.to);
+        t.parent();
         lvalue = { tag: "fieldas", expr, name };
       } else if (t.name === "VariableName") {
         const name = s.substring(t.from, t.to);
