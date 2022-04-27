@@ -1,7 +1,8 @@
 import wabt from "wabt";
 import { Stmt, Expr, Decl, BINOP_OPCODE } from "./ast";
 import { parseProgram } from "./parser";
-import { tcProgram } from "./tc";
+import { tcProgram, Classes } from "./tc";
+import { RuntimeError } from "./util";
 
 export const mathlib = {
   abs: Math.abs,
@@ -9,6 +10,12 @@ export const mathlib = {
   min: Math.min,
   pow: Math.pow,
   neg: (x: any) => -x,
+  check_null: (x: any) => {
+    if (x === 0) {
+      throw new RuntimeError("null pointer dereference");
+    }
+    return x;
+  },
 };
 
 export async function run(watSource: string, imports: any): Promise<number> {
@@ -17,13 +24,14 @@ export async function run(watSource: string, imports: any): Promise<number> {
   // Next three lines are wat2wasm
   const parsed = wabtApi.parseWat("example", watSource);
   const binary = parsed.toBinary({});
-  const wasmModule = await WebAssembly.instantiate(binary.buffer, { imports });
+  const memory = new WebAssembly.Memory({ initial: 10, maximum: 100 });
+  const wasmModule = await WebAssembly.instantiate(binary.buffer, { js: { memory }, imports });
 
   // This next line is wasm-interp
   return (wasmModule.instance.exports as any)._start();
 }
 
-export function codeGenExpr(expr: Expr): Array<string> {
+export function codeGenExpr(expr: Expr, classdata: Classes): Array<string> {
   switch (expr.tag) {
     case "id": {
       const scope = expr.isGlobal ? "global" : "local";
@@ -41,30 +49,45 @@ export function codeGenExpr(expr: Expr): Array<string> {
       }
       return [`(i32.const ${v})`];
     case "call": {
-      const valStmts = expr.args.flatMap(codeGenExpr);
+      const valStmts = expr.args.flatMap((e) => codeGenExpr(e, classdata));
       let funcname: string;
+      let receiver: string[];
       if (expr.name === "print") {
         const argtype = expr.args[0].a.typ.tag;
         if (argtype === "func") {
           throw new TypeError("Cannot print a function");
+        } else if (argtype === "object") {
+          funcname = "print_int";
+          receiver = [];
         } else {
           funcname = `print_${argtype}`;
+          receiver = [];
         }
+      } else if (expr.receiver !== null) {
+        funcname = `${(expr.receiver.a.typ as any).name}$${expr.name}`;
+        receiver = codeGenExpr(expr.receiver, classdata).concat([`(call $$check_null)`]);
       } else {
         funcname = expr.name;
+        receiver = [];
       }
-      return valStmts.concat([`(call $${funcname})`]);
+      return receiver.concat(valStmts, [`(call $${funcname})`]);
     }
     case "uniop":
-      const arg = codeGenExpr(expr.value);
+      const arg = codeGenExpr(expr.value, classdata);
       // op can only be - or not
       const call = expr.op === "-" ? `(call $$neg)` : `(i32.eqz)`;
       return arg.concat([call]);
     case "binop": {
-      const left = codeGenExpr(expr.left);
-      const right = codeGenExpr(expr.right);
+      const left = codeGenExpr(expr.left, classdata);
+      const right = codeGenExpr(expr.right, classdata);
       const op = `(${BINOP_OPCODE[expr.op]})`;
       return left.concat(right, [op]);
+    }
+    case "field": {
+      const obj = expr.expr;
+      const objCode = codeGenExpr(obj, classdata);
+      const off = classdata.get((obj.a.typ as any).name).offset.get(expr.name);
+      return objCode.concat([`(call $$check_null)`, `(i32.load offset=${off})`]);
     }
   }
 }
@@ -74,62 +97,88 @@ export function codeGenStmt(stmt: Stmt, classdata: Classes): Array<string> {
     case "pass":
       return [];
     case "return":
-      var valStmts = codeGenExpr(stmt.value);
+      var valStmts = codeGenExpr(stmt.value, classdata);
       valStmts.push("return");
       return valStmts;
     case "assign": {
-      const valStmts = codeGenExpr(stmt.value);
+      const valStmts = codeGenExpr(stmt.value, classdata);
       const scope = stmt.isGlobal ? "global" : "local";
-      return valStmts.concat([`(${scope}.set $${stmt.name})`]);
+      if (stmt.lvalue.tag === "var") {
+        return valStmts.concat([`(${scope}.set $${stmt.lvalue.name})`]);
+      } else {
+        const obj = stmt.lvalue.expr;
+        const objCode = codeGenExpr(obj, classdata);
+        const off = classdata.get((obj.a.typ as any).name).offset.get(stmt.lvalue.name);
+        return [...objCode, `(call $$check_null)`, ...valStmts, `(i32.store offset=${off})`];
+      }
     }
     case "expr":
-      const result = codeGenExpr(stmt.expr);
+      const result = codeGenExpr(stmt.expr, classdata);
       result.push("(local.set $scratch)");
       return result;
     case "if": {
-      const cond = codeGenExpr(stmt.cond);
-      const then = stmt.then.flatMap(codeGenStmt);
-      const else_ = stmt.else_.flatMap(codeGenStmt);
+      const cond = codeGenExpr(stmt.cond, classdata);
+      const then = stmt.then.flatMap((s) => codeGenStmt(s, classdata));
+      const else_ = stmt.else_.flatMap((s) => codeGenStmt(s, classdata));
       return cond.concat(["(if", "(then"], then, [")", "(else"], else_, [")", ")"]);
-    }
-    case "while": {
-      const cond = codeGenExpr(stmt.cond);
-      const body = stmt.body.flatMap(codeGenStmt);
-      return [].concat(["(loop"], cond, ["(if", "(then"], body, ["(br 1)", ")", ")", ")"]);
     }
   }
 }
 
-export function codeGenDecl(decl: Decl): string[] {
+export function codeGenDecl(decl: Decl, classdata: Classes): string[] {
   switch (decl.tag) {
-    case "func_def": {
-      const func = decl.decl;
-      const params = func.params.map((p) => `(param $${p.name} i32)`).join(" ");
-      const defs = func.var_def.map((vd) => `(local $${vd.var_.name} i32)`);
-      const inits = func.var_def.flatMap((vd) => {
-        return codeGenExpr(vd.value).concat([`(local.set $${vd.var_.name})`]);
+    case "class_def": {
+      const cls = decl.decl;
+      const methods = cls.methods.flatMap((func) => {
+        const params = func.params.map((p) => `(param $${p.name} i32)`).join(" ");
+        const defs = func.var_def.map((vd) => `(local $${vd.var_.name} i32)`);
+        const inits = func.var_def.flatMap((vd) => {
+          return codeGenExpr(vd.value, classdata).concat([`(local.set $${vd.var_.name})`]);
+        });
+        const stmts = func.body.flatMap((s) => codeGenStmt(s, classdata));
+        return [].concat(
+          [`(func $${cls.name}$${func.name} ${params} (result i32)`, "(local $scratch i32)"],
+          defs,
+          inits,
+          stmts,
+          ["(i32.const 0)", ")"]
+        );
       });
-      const stmts = func.body.map(codeGenStmt).flat();
-      return [].concat(
-        [`(func $${func.name} ${params} (result i32)`, "(local $scratch i32)"],
-        defs,
-        inits,
-        stmts,
-        ["(i32.const 0)", ")"]
-      );
+      const fields = cls.fields.flatMap((f) => {
+        const name = f.var_.name;
+        const off = classdata.get(cls.name).offset.get(name);
+        const init = codeGenExpr(f.value, classdata);
+        return [`(global.get $$heap)`, `(i32.add (i32.const ${off}))`, ...init, `(i32.store)`];
+      });
+      const initf = cls.methods.some((m) => m.name === "__init__")
+        ? `${cls.name}$__init__`
+        : "object$__init__";
+      const constructor = [
+        `(func $${cls.name} (result i32)`,
+        ...fields,
+        `(global.get $$heap)`,
+        `(global.get $$heap)`,
+        `(global.get $$heap)`,
+        `(i32.add (i32.const ${cls.fields.length * 4}))`,
+        `(global.set $$heap)`,
+        `(call $${initf})`,
+        `(drop)`,
+        `)`,
+      ];
+      return constructor.concat(methods);
     }
     case "var_def":
       const var_ = decl.decl;
-      const init = codeGenExpr(var_.value);
+      const init = codeGenExpr(var_.value, classdata);
       return [].concat([`(global $${var_.var_.name} (mut i32)`], init, [")"]);
   }
 }
 
 export function compile(source: string): string {
   const ast = parseProgram(source);
-  tcProgram(ast);
-  const decls = ast.decls.flatMap(codeGenDecl).join("\n");
-  const stmts = ast.stmts.flatMap(codeGenStmt).join("\n");
+  const [cd] = tcProgram(ast);
+  const decls = ast.decls.flatMap((d) => codeGenDecl(d, cd)).join("\n");
+  const stmts = ast.stmts.flatMap((s) => codeGenStmt(s, cd)).join("\n");
 
   const lastStmt = ast.stmts[ast.stmts.length - 1];
   const isExpr = lastStmt?.tag === "expr";
@@ -137,14 +186,20 @@ export function compile(source: string): string {
   const retVal = isExpr ? "(local.get $scratch)" : "";
 
   return `(module
-  (func $print_int (import "imports" "print_int") (param i32) (result i32))
+  (import "js" "memory" (memory 10))
+  (func $print_int (import "imports" "print_num") (param i32) (result i32))
   (func $print_none (import "imports" "print_none") (param i32) (result i32))
   (func $print_bool (import "imports" "print_bool") (param i32) (result i32))
   (func $abs (import "imports" "abs") (param i32) (result i32))
   (func $max (import "imports" "max") (param i32) (param i32) (result i32))
   (func $min (import "imports" "min") (param i32) (param i32) (result i32))
   (func $pow (import "imports" "pow") (param i32) (param i32) (result i32))
+
   (func $$neg (import "imports" "neg") (param i32) (result i32))
+  (func $$check_null (import "imports" "check_null") (param i32) (result i32))
+  (func $object$__init__ (param $self i32) (result i32)
+    (i32.const 0))
+  (global $$heap (mut i32) (i32.const 4))
 ${decls}
   (func (export "_start") ${retType}
     (local $scratch i32)

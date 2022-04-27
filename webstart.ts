@@ -3,7 +3,7 @@ import { compile, run, mathlib } from "./compiler";
 (window as any)["runWat"] = run;
 
 const imports = {
-  print_int: (arg: any) => {
+  print_num: (arg: any) => {
     console.log("Logging from WASM: ", arg);
     const output = document.getElementById("output");
     output.innerText += arg + "\n";
