@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const python = require("lezer-python");
+const python = require("@lezer/python");
 const process = require("process");
 
 const input = process.argv[2] || "def f(x): return x + 2\nf(4)";

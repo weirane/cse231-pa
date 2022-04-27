@@ -1,5 +1,5 @@
-import { TreeCursor } from "lezer";
-import { parser } from "lezer-python";
+import { TreeCursor } from "@lezer/common";
+import { parser } from "@lezer/python";
 import {
   TypedVar,
   Stmt,
@@ -25,7 +25,7 @@ export class ParseError extends Error {
 
 export function parseProgram(source: string): Program {
   const t = parser.parse(source).cursor();
-  if (!t.firstChild()) {
+  if (!t.firstChild() || t.name === "⚠") {
     return { decls: [], stmts: [] };
   }
   const decls = [];
@@ -187,7 +187,7 @@ export function traverseStmt(s: string, t: TreeCursor): Stmt {
     case "ReturnStatement": {
       t.firstChild(); // Focus return keyword
       t.nextSibling(); // Focus expression
-      const value = t.name === "⚠" ? exprFromLiteral(null) : traverseExpr(s, t);
+      const value = t.name === "return" ? exprFromLiteral(null) : traverseExpr(s, t);
       t.parent();
       return { tag: "return", value };
     }

@@ -198,6 +198,17 @@ class Foo(object):
   def a(self: Foo) -> int:
     x: int = 0
     if x == 0:
+      return 1
+    else:
+      return`,
+      "none returned but int expected"
+    );
+    verifyThrows(
+      `
+class Foo(object):
+  def a(self: Foo) -> int:
+    x: int = 0
+    if x == 0:
       return 1`,
       "Function must return a value"
     );

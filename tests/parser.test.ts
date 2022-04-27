@@ -1,5 +1,5 @@
 import { expect } from "chai";
-import { parser } from "lezer-python";
+import { parser } from "@lezer/python";
 import * as p from "../parser";
 import { exprFromLiteral, intTypedVar, boolTypedVar, classVar, Expr, Stmt, namedVar } from "../ast";
 
