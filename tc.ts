@@ -255,6 +255,9 @@ export function scopeFromDecls(decls: Decl[]): [Scope, Classes] {
         if (!sameType(meth.params[0].typ, { tag: "object", name: cls.name })) {
           throw new TypeError(`First parameter of method ${meth.name} must be of type ${cls.name}`);
         }
+        if (meth.name === "__init__" && meth.params.length !== 1) {
+          throw new TypeError(`${cls.name}.__init__ should have exactly one argument`);
+        }
         cd.attrs.set(meth.name, {
           tag: "func",
           args: meth.params.slice(1).map((p) => p.typ),

@@ -313,6 +313,15 @@ class C:
     pass`,
     "First parameter of method f must be of type C"
   );
+
+  itVerifyThrows(
+    "ensures one argument for __init__",
+    `
+class C:
+  def __init__(self: C, a: int, b: int):
+    pass`,
+    "C.__init__ should have exactly one argument"
+  );
 });
 
 describe("typecheck programs", () => {
